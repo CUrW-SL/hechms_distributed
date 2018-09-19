@@ -1,0 +1,17 @@
+INIT_DATE_TIME_FORMAT = "%Y-%m-%d_%H:%M:%S"
+UPLOADS_DEFAULT_DEST = ''
+DISTRIBUTED_MODEL_TEMPLATE_DIR = ''
+HECHMS_LIBS_DIR = ''
+SUB_CATCHMENT_SHAPE_FILE_DIR = ''
+THESSIAN_DECIMAL_POINTS = 4
+# { "host": "192.168.1.42", "user": "curw", "password": "curw", "db": "curw" }
+MYSQL_USER = 'curw'
+MYSQL_PASSWORD = 'curw'
+MYSQL_HOST = '192.168.1.42'
+MYSQL_DB = 'curw'
+
+# MYSQL_USER = 'root'
+# MYSQL_PASSWORD = 'cfcwm07'
+# MYSQL_HOST = '104.198.0.87'
+# MYSQL_DB = 'curw'
+
