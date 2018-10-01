@@ -6,7 +6,7 @@ from flask_json import FlaskJSON, JsonError, json_response
 from flask_uploads import UploadSet, configure_uploads
 from os import path
 from config import UPLOADS_DEFAULT_DEST, HECHMS_LIBS_DIR, DISTRIBUTED_MODEL_TEMPLATE_DIR, INIT_DATE_TIME_FORMAT
-from input.shape_util.polygon_util import get_sub_ratios, get_timeseris
+from input.shape_util.polygon_util import get_sub_ratios, get_timeseris, get_sub_catchment_rain_files
 
 app = Flask(__name__)
 flask_json = FlaskJSON()
@@ -101,6 +101,12 @@ def get_sub_catchment_timeseries():
     print('get_sub_catchment_timeseries.')
     return jsonify({'timeseries': get_timeseris()})
 
+
+@app.route('/HECHMS/distributed/rain-fall', methods=['GET', 'POST'])
+def get_sub_catchment_rain_fall():
+    print('get_sub_catchment_rain_fall.')
+    get_sub_catchment_rain_files()
+    return jsonify({'timeseries': {}})
 
 def is_valid_run_name(run_name):
     """

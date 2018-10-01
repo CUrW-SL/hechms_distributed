@@ -7,10 +7,14 @@ import datetime
 import numpy as np
 import geopandas as gpd
 from scipy.spatial import Voronoi
-from input.station_metadata import meta_data,kub_points
+from input.station_metadata import meta_data
 from db_layer import get_event_id, get_time_series_values
 from config import SUB_CATCHMENT_SHAPE_FILE_DIR, THESSIAN_DECIMAL_POINTS
 from db_layer import MySqlAdapter
+
+
+TIME_GAP_MINUTES = 5
+MISSING_ERROR_PERCENTAGE = 0.1
 
 
 def _voronoi_finite_polygons_2d(vor, radius=None):
@@ -98,12 +102,6 @@ def _voronoi_finite_polygons_2d(vor, radius=None):
     return new_regions, np.asarray(new_vertices)
 
 
-def get_voronoi_polygons_kub(points):
-    shp = res_mgr.get_resource_path('kub/kelani-upper-basin.shp')
-    result = get_voronoi_polygons(points, shp, ['OBJECTID', 1], output_shape_file=os.path.join('/home/hasitha/QGis/test', 'out.shp'))
-    print(result.iloc[0])
-
-
 def get_gage_points():
     gage_csv = res_mgr.get_resource_path('gages/CurwRainGauges.csv')
     gage_df = pd.read_csv(gage_csv)[['name', 'longitude', 'latitude']]
@@ -144,15 +142,6 @@ def calculate_intersection(thessian_df, catchment_df):
     return sub_ratios
 
 
-# {'sub_catchment_name': 'SB-6', 'ratios': [{'gage_name': 'Hanwella', 'ratio': 0.0877}]}
-# meta_data = {
-#                 'station': 'Hanwella',
-#                 'variable': 'Discharge',
-#                 'unit': 'm3/s',
-#                 'type': type,
-#                 'source': 'HEC-HMS',
-#                 'name': opts.get('run_name', 'Cloud-1'),
-#             }
 def get_sub_catchment_rainfall(data_from, data_to, db_adapter, sub_dict, station_metadata=meta_data):
     stations_meta = copy.deepcopy(station_metadata)
     sub_catchment_name = sub_dict['sub_catchment_name']
@@ -165,16 +154,13 @@ def get_sub_catchment_rainfall(data_from, data_to, db_adapter, sub_dict, station
         print('timeseries_meta:',timeseries_meta)
         try:
             db_meta_data = {'station': gage_name,
-                         #'variable': timeseries_meta['variable'],'Precipitation'
-                         'variable': 'Precipitation',
-                         'unit': timeseries_meta['unit'],
-                         #'type': timeseries_meta['event_type'],'Forecast-0-d'
-                         'type': 'Forecast-0-d',
-                         #'source': timeseries_meta['source'],
-                         'source': 'wrf0',
-                         'name': 'Cloud-1'}
+                            'variable': timeseries_meta['variable'],
+                            'unit': timeseries_meta['unit'],
+                            'type': timeseries_meta['event_type'],
+                            'source': timeseries_meta['source'],
+                            'name': timeseries_meta['run_name']}
             event_id = get_event_id(db_adapter, db_meta_data)
-            print('event_id:',event_id)
+            print('event_id:', event_id)
             time_series_df = get_time_series_values(db_adapter, event_id, data_from, data_to)
             ratio = gage_dict['ratio']
             print('ratio:', ratio)
@@ -183,13 +169,64 @@ def get_sub_catchment_rainfall(data_from, data_to, db_adapter, sub_dict, station
 
         except Exception as e:
             print("get_event_id|Exception|e : ", e)
-        #time_series_df.loc[:, 'values'] *= ratio
+
+
+def get_kub_points_from_meta_data(station_metadata=meta_data):
+    kub_points = {}
+    print('station_metadata : ', type(station_metadata))
+    for key, value in station_metadata.items():
+        print('key : ', key)
+        print('value : ', value)
+        kub_points[key] = value['lon_lat']
+    print('kub_points : ', kub_points)
+    return kub_points
+
+
+def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadata=meta_data):
+    validated_gages = {}
+    ts_datetime_from = datetime.datetime.strptime(datetime_from, '%Y-%m-%d %H:%M:%S')
+    ts_datetime_to = datetime.datetime.strptime(datetime_to, '%Y-%m-%d %H:%M:%S')
+    #print('days : ', (ts_datetime_to - ts_datetime_from).days)
+    time_series_count = ((ts_datetime_to - ts_datetime_from).days * 24 * 60)/TIME_GAP_MINUTES
+    #print('time_series_count : ', time_series_count)
+    for key, value in station_metadata.items():
+        #print('key : ', key)
+        #print('value : ', value)
+        try:
+            db_meta_data = {'station': key,
+                            'variable': value['variable'],
+                            'unit': value['unit'],
+                            'type': value['event_type'],
+                            'source': value['source'],
+                            'name': value['run_name']}
+            event_id = get_event_id(db_adapter, db_meta_data)
+            #print('event_id:', event_id)
+            time_series_df = get_time_series_values(db_adapter, event_id, ts_datetime_from, ts_datetime_to)
+            print('df size : ', time_series_df.size)
+            error_percentage = (time_series_count - time_series_df.size)/time_series_count
+            print('validate_gage_points|error_percentage: ', error_percentage)
+            if error_percentage <= MISSING_ERROR_PERCENTAGE:
+                new_ts = time_series_df.resample('1H').sum().fillna(0)
+                validated_gages[key] = new_ts
+            else:
+                print('Discard time-series.')
+        except Exception as e:
+            print("validate_gage_points|Exception|e : ", e)
+    return validated_gages
+
+
+def get_sub_catchment_rain_files():
+    db_adapter = MySqlAdapter()
+    valid_gages = validate_gage_points(db_adapter, '2018-09-28 00:00:00', '2018-10-01 00:00:00')
+    print(valid_gages.keys())
+    #get_kub_points_from_meta_data()
 
 
 def get_sub_ratios():
     try:
         shape_file = 'kub-wgs84/kub-wgs84.shp'
         catchment_file = 'kub/sub_catchments/sub_catchments1.shp'
+        kub_points = get_kub_points_from_meta_data()
         thessian_df = get_thessian_polygon_from_gage_points(shape_file, kub_points)
         catchment_df = get_catchment_area(catchment_file)
         sub_ratios = calculate_intersection(thessian_df, catchment_df)
@@ -203,11 +240,12 @@ def get_timeseris():
     try:
         shape_file = 'kub-wgs84/kub-wgs84.shp'
         catchment_file = 'kub/sub_catchments/sub_catchments1.shp'
+        kub_points = get_kub_points_from_meta_data()
         thessian_df = get_thessian_polygon_from_gage_points(shape_file, kub_points)
         catchment_df = get_catchment_area(catchment_file)
         sub_ratios = calculate_intersection(thessian_df, catchment_df)
         print(sub_ratios)
         db_adapter = MySqlAdapter()
-        get_sub_catchment_rainfall('2018-08-30 02:00:00', '2018-09-22 18:00:00', db_adapter, sub_ratios[1])
+        get_sub_catchment_rainfall('2018-09-27 00:00:00', '2018-09-30 00:00:00', db_adapter, sub_ratios[1])
     except Exception as e:
         print("get_thessian_polygon_from_gage_points|Exception|e : ", e)
