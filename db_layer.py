@@ -48,7 +48,10 @@ class MySqlAdapter:
             'parameters': ''
         }
         self.source_struct_keys = self.source_struct.keys()
+        self.connection = self.engine.connect()
 
+    def close_connection(self):
+        self.connection.close()
 
 def get_time_series_values(self, event_id, data_from, data_to):
     sql = "SELECT `time`,`value` FROM `%s` WHERE `id`=\"%s\" " % ('data', event_id)
@@ -76,8 +79,7 @@ def get_event_id(self, meta_data):
     m.update(json.dumps(hash_data, sort_keys=True).encode("ascii"))
     possible_id = m.hexdigest()
     try:
-        connection = self.engine.connect()
-        result = connection.execute("SELECT 1 FROM `run` WHERE `id`='{}'".format(possible_id))
+        result = self.connection.execute("SELECT 1 FROM `run` WHERE `id`='{}'".format(possible_id))
         if result.fetchone() is not None:
             event_id = possible_id
     except Exception:
@@ -101,15 +103,15 @@ def create_event_id(self, meta_data):
             "SELECT `id` as `type_id` FROM `type` WHERE `type`='{}'".format(meta_data['type']),
             "SELECT `id` as `source_id` FROM `source` WHERE `source`='{}'".format(meta_data['source'])
         ]
-        station_id = self.engine.connect().excute(sql_list[0]).fetchone()
-        variable_id = self.engine.connect().excute(sql_list[1]).fetchone()
-        unit_id = self.engine.connect().excute(sql_list[2]).fetchone()
-        type_id = self.engine.connect().excute(sql_list[3]).fetchone()
-        source_id = self.engine.connect().excute(sql_list[4]).fetchone()
+        station_id = self.connection.excute(sql_list[0]).fetchone()
+        variable_id = self.connection.excute(sql_list[1]).fetchone()
+        unit_id = self.connection.excute(sql_list[2]).fetchone()
+        type_id = self.connection.excute(sql_list[3]).fetchone()
+        source_id = self.connection.excute(sql_list[4]).fetchone()
 
         sql = "INSERT INTO `run` (`id`, `name`, `station`, `variable`, `unit`, `type`, `source`) VALUES ({},{},{},{},{},{},{})"\
             .format((event_id,meta_data['name'],station_id,variable_id,unit_id,type_id,source_id))
-        self.engine.connect().excute(sql)
+        self.connection.excute(sql)
     except Exception as e:
         traceback.print_exc()
         raise e
@@ -174,7 +176,7 @@ def get_type_by_date(run_date, ts_date):
 def save_init_state(self, date, init_data):
     try:
         sql = 'UPDATE tbl_hec_init SET file = {} WHERE date  = \'{}\' '.format(init_data, date)
-        self.engine.connect().excute(sql)
+        self.connection.excute(sql)
     except Exception as e:
         print('save_init_state|Exception:', e)
 
@@ -182,9 +184,12 @@ def save_init_state(self, date, init_data):
 def get_init_state(self, date):
     try:
         sql = 'select file from tbl_hec_init WHERE date  = \'{}\' '.format(date)
-        result = self.engine.connect().excute(sql)
+        result = self.connection.excute(sql)
         for init_data in result:
             return init_data
     except Exception as e:
         print('get_init_state|Exception:', e)
         return None
+
+
+

@@ -7,6 +7,9 @@ from flask_uploads import UploadSet, configure_uploads
 from os import path
 from config import UPLOADS_DEFAULT_DEST, HECHMS_LIBS_DIR, DISTRIBUTED_MODEL_TEMPLATE_DIR, INIT_DATE_TIME_FORMAT
 from input.shape_util.polygon_util import get_sub_ratios, get_timeseris, get_sub_catchment_rain_files
+from input.gage.model_gage import create_gage_file
+from input.control.model_control import create_control_file
+from input.run.model_run import create_run_file
 
 app = Flask(__name__)
 flask_json = FlaskJSON()
@@ -107,6 +110,27 @@ def get_sub_catchment_rain_fall():
     print('get_sub_catchment_rain_fall.')
     get_sub_catchment_rain_files()
     return jsonify({'timeseries': {}})
+
+
+@app.route('/HECHMS/distributed/create-gage-file', methods=['GET', 'POST'])
+def get_gage_file():
+    print('create_gage_file.')
+    create_gage_file('distributed_model', '2018-10-08 10:00:00', '2018-10-11 10:00:00')
+    return jsonify({'timeseries': {}})
+
+@app.route('/HECHMS/distributed/create-control-file', methods=['GET', 'POST'])
+def get_control_file():
+    print('create_gage_file.')
+    create_control_file('distributed_model', '2018-10-07 10:00:00', '2018-10-10 10:00:00')
+    return jsonify({'timeseries': {}})
+
+
+@app.route('/HECHMS/distributed/create-run-file', methods=['GET', 'POST'])
+def get_run_file():
+    print('create_run_file.')
+    create_run_file('distributed_model', '2018-10-11 11:00:00')
+    return jsonify({'timeseries': {}})
+
 
 def is_valid_run_name(run_name):
     """

@@ -14,7 +14,7 @@ from db_layer import MySqlAdapter
 
 
 TIME_GAP_MINUTES = 5
-MISSING_ERROR_PERCENTAGE = 0.1
+MISSING_ERROR_PERCENTAGE = 0.3
 
 
 def _voronoi_finite_polygons_2d(vor, radius=None):
@@ -186,12 +186,8 @@ def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadat
     validated_gages = {}
     ts_datetime_from = datetime.datetime.strptime(datetime_from, '%Y-%m-%d %H:%M:%S')
     ts_datetime_to = datetime.datetime.strptime(datetime_to, '%Y-%m-%d %H:%M:%S')
-    #print('days : ', (ts_datetime_to - ts_datetime_from).days)
     time_series_count = ((ts_datetime_to - ts_datetime_from).days * 24 * 60)/TIME_GAP_MINUTES
-    #print('time_series_count : ', time_series_count)
     for key, value in station_metadata.items():
-        #print('key : ', key)
-        #print('value : ', value)
         try:
             db_meta_data = {'station': key,
                             'variable': value['variable'],
@@ -200,16 +196,13 @@ def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadat
                             'source': value['source'],
                             'name': value['run_name']}
             event_id = get_event_id(db_adapter, db_meta_data)
-            #print('event_id:', event_id)
             time_series_df = get_time_series_values(db_adapter, event_id, ts_datetime_from, ts_datetime_to)
-            print('df size : ', time_series_df.size)
             error_percentage = (time_series_count - time_series_df.size)/time_series_count
-            print('validate_gage_points|error_percentage: ', error_percentage)
             if error_percentage <= MISSING_ERROR_PERCENTAGE:
                 new_ts = time_series_df.resample('1H').sum().fillna(0)
                 validated_gages[key] = new_ts
             else:
-                print('Discard time-series.')
+                print('Discard time-series|time_series_df.size:',time_series_df.size)
         except Exception as e:
             print("validate_gage_points|Exception|e : ", e)
     return validated_gages
@@ -217,9 +210,17 @@ def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadat
 
 def get_sub_catchment_rain_files():
     db_adapter = MySqlAdapter()
-    valid_gages = validate_gage_points(db_adapter, '2018-09-28 00:00:00', '2018-10-01 00:00:00')
+    valid_gages = validate_gage_points(db_adapter, '2018-09-29 00:00:00', '2018-10-02 00:00:00')
+    MySqlAdapter.close_connection(db_adapter)
+    return valid_gages
+
+
+def get_valid_gages(start_date, end_date):
+    db_adapter = MySqlAdapter()
+    valid_gages = validate_gage_points(db_adapter, start_date, end_date)
+    MySqlAdapter.close_connection(db_adapter)
     print(valid_gages.keys())
-    #get_kub_points_from_meta_data()
+    return valid_gages
 
 
 def get_sub_ratios():
@@ -247,5 +248,8 @@ def get_timeseris():
         print(sub_ratios)
         db_adapter = MySqlAdapter()
         get_sub_catchment_rainfall('2018-09-27 00:00:00', '2018-09-30 00:00:00', db_adapter, sub_ratios[1])
+        MySqlAdapter.close_connection(db_adapter)
     except Exception as e:
         print("get_thessian_polygon_from_gage_points|Exception|e : ", e)
+
+
