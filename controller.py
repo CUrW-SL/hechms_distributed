@@ -108,7 +108,7 @@ def get_sub_catchment_timeseries():
 @app.route('/HECHMS/distributed/rain-fall', methods=['GET', 'POST'])
 def get_sub_catchment_rain_fall():
     print('get_sub_catchment_rain_fall.')
-    get_sub_catchment_rain_files()
+    get_sub_catchment_rain_files('2018-11-08 00:00:00', '2018-11-11 10:00:00')
     return jsonify({'timeseries': {}})
 
 

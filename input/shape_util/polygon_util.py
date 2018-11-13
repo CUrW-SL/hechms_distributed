@@ -182,11 +182,24 @@ def get_kub_points_from_meta_data(station_metadata=meta_data):
     return kub_points
 
 
+def get_valid_kub_points_from_meta_data(validated_gages, station_metadata=meta_data):
+    kub_points = {}
+    print('station_metadata : ', type(station_metadata))
+    for key, value in station_metadata.items():
+        print('key : ', key)
+        print('value : ', value)
+        if key in validated_gages:
+            kub_points[key] = value['lon_lat']
+    print('kub_points : ', kub_points)
+    return kub_points
+
+
 def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadata=meta_data):
     validated_gages = {}
     ts_datetime_from = datetime.datetime.strptime(datetime_from, '%Y-%m-%d %H:%M:%S')
     ts_datetime_to = datetime.datetime.strptime(datetime_to, '%Y-%m-%d %H:%M:%S')
     time_series_count = ((ts_datetime_to - ts_datetime_from).days * 24 * 60)/TIME_GAP_MINUTES
+    print('time_series_count : ',time_series_count)
     for key, value in station_metadata.items():
         try:
             db_meta_data = {'station': key,
@@ -197,22 +210,70 @@ def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadat
                             'name': value['run_name']}
             event_id = get_event_id(db_adapter, db_meta_data)
             time_series_df = get_time_series_values(db_adapter, event_id, ts_datetime_from, ts_datetime_to)
+            print('key : ', key)
+            print('time_series_df.size : ', time_series_df.size)
             error_percentage = (time_series_count - time_series_df.size)/time_series_count
-            if error_percentage <= MISSING_ERROR_PERCENTAGE:
-                new_ts = time_series_df.resample('1H').sum().fillna(0)
-                validated_gages[key] = new_ts
-            else:
-                print('Discard time-series|time_series_df.size:',time_series_df.size)
+            print('error_percentage : ', error_percentage)
+            new_ts = time_series_df.resample('1H').sum().fillna(0)
+            validated_gages[key] = new_ts
+            # if error_percentage <= MISSING_ERROR_PERCENTAGE:
+            #     new_ts = time_series_df.resample('1H').sum().fillna(0)
+            #     validated_gages[key] = new_ts
+            # else:
+            #     print('Discard time-series|time_series_df.size:', time_series_df.size)
         except Exception as e:
             print("validate_gage_points|Exception|e : ", e)
     return validated_gages
 
 
-def get_sub_catchment_rain_files():
+def get_sub_catchment_rain_files(from_datetime, to_datetime):
     db_adapter = MySqlAdapter()
-    valid_gages = validate_gage_points(db_adapter, '2018-09-29 00:00:00', '2018-10-02 00:00:00')
-    MySqlAdapter.close_connection(db_adapter)
-    return valid_gages
+    valid_gages = validate_gage_points(db_adapter, from_datetime, to_datetime)
+    print('valid_gages : ', valid_gages)
+    print('valid_gages.keys() : ', valid_gages.keys())
+    kub_points = get_valid_kub_points_from_meta_data(valid_gages)
+    try:
+        shape_file = 'kub-wgs84/kub-wgs84.shp'
+        catchment_file = 'kub/sub_catchments/sub_catchments1.shp'
+        thessian_df = get_thessian_polygon_from_gage_points(shape_file, kub_points)
+        catchment_df = get_catchment_area(catchment_file)
+        sub_ratios = calculate_intersection(thessian_df, catchment_df)
+        print(sub_ratios)
+        file_index = 1
+        for sub_dict in sub_ratios:
+            ratio_list = sub_dict['ratios']
+            gage_dict = ratio_list[0]
+            print('gage_dict:', gage_dict)
+            gage_name = gage_dict['gage_name']
+            try:
+                tmp_sub_catchment_df = valid_gages[gage_name]
+                ratio = gage_dict['ratio']
+                print('ratio:', ratio)
+                tmp_sub_catchment_df.loc[:, 'value'] *= ratio
+                print('tmp_sub_catchment_df:', tmp_sub_catchment_df)
+                sub_catchment_df = tmp_sub_catchment_df
+                ratio_list.remove(gage_dict)
+                for gage_dict in ratio_list:
+                    print('gage_dict:', gage_dict)
+                    gage_name = gage_dict['gage_name']
+                    try:
+                        time_series_df = valid_gages[gage_name]
+                        ratio = gage_dict['ratio']
+                        print('ratio:', ratio)
+                        time_series_df.loc[:, 'value'] *= ratio
+                        print('time_series_df:', time_series_df)
+                        time_series_df.to_csv('file_'+str(file_index)+'.csv')
+                        file_index = file_index + 1
+                        sub_catchment_df['value'] = sub_catchment_df['value'] + time_series_df['value']
+                    except Exception as e:
+                        print("get_event_id|Exception|e : ", e)
+                sub_catchment_df.to_csv('sub_catchment_file_' + str(file_index) + '.csv')
+            except Exception as e:
+                print("get_event_id|Exception|e : ", e)
+        MySqlAdapter.close_connection(db_adapter)
+    except Exception as e:
+        MySqlAdapter.close_connection(db_adapter)
+        print("get_thessian_polygon_from_gage_points|Exception|e : ", e)
 
 
 def get_valid_gages(start_date, end_date):

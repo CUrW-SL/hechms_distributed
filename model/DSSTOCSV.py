@@ -20,8 +20,8 @@ try :
         # print('Config :: ', CONFIG)
 
         NUM_METADATA_LINES = 2;
-        HEC_HMS_MODEL_DIR = './2008_2_Events'
-        DSS_OUTPUT_FILE = './2008_2_Events/2008_2_Events.dss'
+        HEC_HMS_MODEL_DIR = './distributed_model'
+        DSS_OUTPUT_FILE = './distributed_model/distributed_model_run.dss'
         DISCHARGE_CSV_FILE = 'DailyDischarge.csv'
         OUTPUT_DIR = './OUTPUT'
 
@@ -108,7 +108,7 @@ try :
         print 'Open Discharge CSV ::', DISCHARGE_CSV_FILE_PATH
         csvWriter = csv.writer(open(DISCHARGE_CSV_FILE_PATH, 'w'), delimiter=',', quotechar='|')
 
-        flow = myDss.get('//HANWELLA/FLOW//1HOUR/RUN:RUN 1/', 1)
+        flow = myDss.get('//JUNCTION-2/FLOW//1HOUR/RUN:RUN 1/', 1)
 
         if flow.numberValues == 0 :
             MessageBox.showError('No Data', 'Error')

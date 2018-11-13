@@ -3,7 +3,7 @@ import hashlib
 import json
 import traceback
 from sqlalchemy import create_engine
-from config import MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB, OBSERVED_MYSQL_HOST
+from config import MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB, OBSERVED_MYSQL_HOST
 import datetime
 
 
@@ -18,7 +18,7 @@ class MySqlAdapter:
         #     MYSQL_DB = CONFIG['MYSQL_DB']
         # if 'MYSQL_PASSWORD' in CONFIG:
         #     MYSQL_PASSWORD = CONFIG['MYSQL_PASSWORD']
-        connection_string = 'mysql://{}:{}@{}/{}'.format(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB)
+        connection_string = 'mysql://{}:{}@{}:{}/{}'.format(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB)
         #connection_string = 'mysql://{}:{}@{}/{}'.format(MYSQL_USER, MYSQL_PASSWORD, OBSERVED_MYSQL_HOST, MYSQL_DB)
         self.engine = create_engine(connection_string)
         self.meta_struct = {
