@@ -11,6 +11,8 @@ from input.station_metadata import meta_data
 from db_layer import get_event_id, get_time_series_values
 from config import SUB_CATCHMENT_SHAPE_FILE_DIR, THESSIAN_DECIMAL_POINTS
 from db_layer import MySqlAdapter
+from functools import reduce
+import csv
 
 
 TIME_GAP_MINUTES = 5
@@ -234,43 +236,55 @@ def get_sub_catchment_rain_files(from_datetime, to_datetime):
     kub_points = get_valid_kub_points_from_meta_data(valid_gages)
     try:
         shape_file = 'kub-wgs84/kub-wgs84.shp'
-        catchment_file = 'kub/sub_catchments/sub_catchments1.shp'
+        #catchment_file = 'kub/sub_catchments/sub_catchments1.shp'
+        catchment_file = 'sub_catchments/Hasitha_subcatchments.shp'
         thessian_df = get_thessian_polygon_from_gage_points(shape_file, kub_points)
         catchment_df = get_catchment_area(catchment_file)
         sub_ratios = calculate_intersection(thessian_df, catchment_df)
         print(sub_ratios)
-        file_index = 1
+        catchments_list = []
+        catchments_rf_df_list = []
         for sub_dict in sub_ratios:
             ratio_list = sub_dict['ratios']
+            sub_catchment_name = sub_dict['sub_catchment_name']
             gage_dict = ratio_list[0]
             print('gage_dict:', gage_dict)
             gage_name = gage_dict['gage_name']
-            try:
-                tmp_sub_catchment_df = valid_gages[gage_name]
+            sub_catchment_df = valid_gages[gage_name]
+            ratio = gage_dict['ratio']
+            print('ratio:', ratio)
+            sub_catchment_df.loc[:, 'value'] *= ratio
+            ratio_list.remove(gage_dict)
+            for gage_dict in ratio_list:
+                print('gage_dict:', gage_dict)
+                gage_name = gage_dict['gage_name']
+                time_series_df = valid_gages[gage_name]
                 ratio = gage_dict['ratio']
                 print('ratio:', ratio)
-                tmp_sub_catchment_df.loc[:, 'value'] *= ratio
-                print('tmp_sub_catchment_df:', tmp_sub_catchment_df)
-                sub_catchment_df = tmp_sub_catchment_df
-                ratio_list.remove(gage_dict)
-                for gage_dict in ratio_list:
-                    print('gage_dict:', gage_dict)
-                    gage_name = gage_dict['gage_name']
-                    try:
-                        time_series_df = valid_gages[gage_name]
-                        ratio = gage_dict['ratio']
-                        print('ratio:', ratio)
-                        time_series_df.loc[:, 'value'] *= ratio
-                        print('time_series_df:', time_series_df)
-                        time_series_df.to_csv('file_'+str(file_index)+'.csv')
-                        file_index = file_index + 1
-                        sub_catchment_df['value'] = sub_catchment_df['value'] + time_series_df['value']
-                    except Exception as e:
-                        print("get_event_id|Exception|e : ", e)
-                sub_catchment_df.to_csv('sub_catchment_file_' + str(file_index) + '.csv')
-            except Exception as e:
-                print("get_event_id|Exception|e : ", e)
+                time_series_df.loc[:, 'value'] *= ratio
+                sub_catchment_df['value'] = sub_catchment_df['value'] + time_series_df['value']
+            catchments_list.append(sub_catchment_name)
+            catchments_rf_df_list.append(sub_catchment_df)
         MySqlAdapter.close_connection(db_adapter)
+        print("catchments_list : ", catchments_list)
+        df_merged = reduce(lambda left, right: pd.merge(left, right, on=['time'],
+                                                        how='outer'), catchments_rf_df_list)
+        print('df_merged : ', df_merged)
+        print('df_merged.columns : ', df_merged.columns.values)
+        df_merged.to_csv('df_merged.csv', header=False)
+        file_handler = open('df_merged_formatted.csv', 'w')
+        csvWriter = csv.writer(file_handler, delimiter=',', quotechar='|')
+        # Write Metadata https://publicwiki.deltares.nl/display/FEWSDOC/CSV
+        first_row = ['Location Names']
+        first_row.extend(catchments_list)
+        second_row = ['Location Ids']
+        second_row.extend(catchments_list)
+        third_row = ['Time', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall']
+        csvWriter.writerow(first_row)
+        csvWriter.writerow(second_row)
+        csvWriter.writerow(third_row)
+        file_handler.close()
+        df_merged.to_csv('df_merged_formatted.csv',  mode='a', header=False)
     except Exception as e:
         MySqlAdapter.close_connection(db_adapter)
         print("get_thessian_polygon_from_gage_points|Exception|e : ", e)
