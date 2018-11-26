@@ -228,7 +228,7 @@ def validate_gage_points(db_adapter, datetime_from, datetime_to, station_metadat
     return validated_gages
 
 
-def get_sub_catchment_rain_files(from_datetime, to_datetime):
+def get_sub_catchment_rain_files(file_name, from_datetime, to_datetime):
     db_adapter = MySqlAdapter()
     valid_gages = validate_gage_points(db_adapter, from_datetime, to_datetime)
     print('valid_gages : ', valid_gages)
@@ -272,19 +272,21 @@ def get_sub_catchment_rain_files(from_datetime, to_datetime):
         print('df_merged : ', df_merged)
         print('df_merged.columns : ', df_merged.columns.values)
         df_merged.to_csv('df_merged.csv', header=False)
-        file_handler = open('df_merged_formatted.csv', 'w')
+        file_handler = open(file_name, 'w')
         csvWriter = csv.writer(file_handler, delimiter=',', quotechar='|')
         # Write Metadata https://publicwiki.deltares.nl/display/FEWSDOC/CSV
         first_row = ['Location Names']
         first_row.extend(catchments_list)
         second_row = ['Location Ids']
         second_row.extend(catchments_list)
-        third_row = ['Time', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall', 'Rainfall']
+        third_row = ['Time']
+        for i in range(len(catchments_list)):
+            third_row.append('Rainfall')
         csvWriter.writerow(first_row)
         csvWriter.writerow(second_row)
         csvWriter.writerow(third_row)
         file_handler.close()
-        df_merged.to_csv('df_merged_formatted.csv',  mode='a', header=False)
+        df_merged.to_csv(file_name,  mode='a', header=False)
     except Exception as e:
         MySqlAdapter.close_connection(db_adapter)
         print("get_thessian_polygon_from_gage_points|Exception|e : ", e)

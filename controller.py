@@ -10,6 +10,7 @@ from input.shape_util.polygon_util import get_sub_ratios, get_timeseris, get_sub
 from input.gage.model_gage import create_gage_file
 from input.control.model_control import create_control_file
 from input.run.model_run import create_run_file
+from config import BACK_DAYS
 
 app = Flask(__name__)
 flask_json = FlaskJSON()
@@ -106,9 +107,23 @@ def get_sub_catchment_timeseries():
 
 
 @app.route('/HECHMS/distributed/rain-fall', methods=['GET', 'POST'])
-def get_sub_catchment_rain_fall():
+@app.route('/HECHMS/distributed/rain-fall/<string:run_datetime>',  methods=['GET', 'POST'])
+@app.route('/HECHMS/distributed/rain-fall/<string:run_datetime>/<int:back_days>',  methods=['GET', 'POST'])
+def get_sub_catchment_rain_fall(run_datetime=datetime.now().strftime('%Y-%m-%d %H:%M:%S'), back_days=2):
     print('get_sub_catchment_rain_fall.')
-    get_sub_catchment_rain_files('2018-11-08 00:00:00', '2018-11-11 10:00:00')
+    print('run_datetime : ', run_datetime)
+    print('back_days : ', back_days)
+    run_datetime = datetime.strptime(run_datetime, '%Y-%m-%d %H:%M:%S')
+
+    end_date = run_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    start_date = run_datetime - timedelta(days=back_days)
+    start_date = start_date.strftime('%Y-%m-%d %H:%M:%S')
+
+    file_date = datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S')
+    file_name = 'DailyRain-{}.csv'.format(file_date.strftime('%Y-%m-%d'))
+    print('file_name : ', file_name)
+    print('{start_date, end_date} : ', {start_date, end_date})
+    get_sub_catchment_rain_files(file_name, start_date, end_date)
     return jsonify({'timeseries': {}})
 
 
