@@ -1,16 +1,15 @@
-import json
-from datetime import datetime, timedelta
-from flask import Flask, request, send_from_directory, jsonify
+from flask import Flask, request, jsonify
 from flask_negotiate import consumes, produces
 from flask_json import FlaskJSON, JsonError, json_response
 from flask_uploads import UploadSet, configure_uploads
 from os import path
 from config import UPLOADS_DEFAULT_DEST, HECHMS_LIBS_DIR, DISTRIBUTED_MODEL_TEMPLATE_DIR, INIT_DATE_TIME_FORMAT
-from input.shape_util.polygon_util import get_sub_ratios, get_timeseris, get_sub_catchment_rain_files
+from input.shape_util.polygon_util import get_sub_ratios, get_timeseris, get_sub_catchment_rain_files, get_rain_files
 from input.gage.model_gage import create_gage_file
 from input.control.model_control import create_control_file
 from input.run.model_run import create_run_file
-from config import BACK_DAYS
+from datetime import datetime,timedelta
+
 
 app = Flask(__name__)
 flask_json = FlaskJSON()
@@ -108,22 +107,24 @@ def get_sub_catchment_timeseries():
 
 @app.route('/HECHMS/distributed/rain-fall', methods=['GET', 'POST'])
 @app.route('/HECHMS/distributed/rain-fall/<string:run_datetime>',  methods=['GET', 'POST'])
-@app.route('/HECHMS/distributed/rain-fall/<string:run_datetime>/<int:back_days>',  methods=['GET', 'POST'])
-def get_sub_catchment_rain_fall(run_datetime=datetime.now().strftime('%Y-%m-%d %H:%M:%S'), back_days=2):
+@app.route('/HECHMS/distributed/rain-fall/<string:run_datetime>/<int:back_days>/<int:forward_days>',  methods=['GET', 'POST'])
+def get_sub_catchment_rain_fall(run_datetime=datetime.now().strftime('%Y-%m-%d %H:%M:%S'), back_days=2, forward_days=3):
     print('get_sub_catchment_rain_fall.')
     print('run_datetime : ', run_datetime)
     print('back_days : ', back_days)
+    print('forward_days : ', forward_days)
+
     run_datetime = datetime.strptime(run_datetime, '%Y-%m-%d %H:%M:%S')
-
-    end_date = run_datetime.strftime('%Y-%m-%d %H:%M:%S')
-    start_date = run_datetime - timedelta(days=back_days)
-    start_date = start_date.strftime('%Y-%m-%d %H:%M:%S')
-
-    file_date = datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S')
-    file_name = 'DailyRain-{}.csv'.format(file_date.strftime('%Y-%m-%d'))
+    to_date = run_datetime + timedelta(days=forward_days)
+    from_date = run_datetime - timedelta(days=back_days)
+    file_date = run_datetime.strftime('%Y-%m-%d')
+    from_date = from_date.strftime('%Y-%m-%d %H:%M:%S')
+    to_date = to_date.strftime('%Y-%m-%d %H:%M:%S')
+    file_name = 'output/DailyRain-{}.csv'.format(file_date)
     print('file_name : ', file_name)
-    print('{start_date, end_date} : ', {start_date, end_date})
-    get_sub_catchment_rain_files(file_name, start_date, end_date)
+    print('{from_date, to_date} : ', {from_date, to_date})
+    # get_sub_catchment_rain_files(file_name, from_date, to_date)
+    get_rain_files(file_name, run_datetime.strftime('%Y-%m-%d %H:%M:%S'), forward_days, back_days)
     return jsonify({'timeseries': {}})
 
 

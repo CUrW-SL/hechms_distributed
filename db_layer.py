@@ -58,8 +58,10 @@ def get_time_series_values(self, event_id, data_from, data_to):
     sql += "AND `%s`>=\"%s\" " % ('time', data_from)
     sql += "AND `%s`<=\"%s\" " % ('time', data_to)
     time_series_data = pd.read_sql_query(sql, self.engine)
-    formatted_ts = pd.DataFrame(data=time_series_data.values, columns=['time', 'value']).set_index(keys='time')
-    return formatted_ts
+    #print(time_series_data)
+    #formatted_ts = pd.DataFrame(data=time_series_data.values, columns=['time', 'value']).set_index(keys='time')
+    #print('get_time_series_values|formatted_ts.columns.values: ', formatted_ts.columns.values)
+    return time_series_data
 
 
 def save_time_series_values(self, data_frame):
