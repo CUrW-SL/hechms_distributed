@@ -20,6 +20,7 @@ BACK_DAYS = 2
 # MYSQL_HOST = '124.43.13.195'
 # MYSQL_PORT = '5036'
 # MYSQL_DB = 'curw'
+RAIN_FALL_FILE_NAME = '/home/hasitha/PycharmProjects/hechms-distributed/DailyRain-{}.csv'
 
 GAGE_MANAGER_TEMPLATE = 'Gage Manager: {MODEL_NAME}\n     Version: 4.2.1\n     Filepath Separator: \ \nEnd:'
 
