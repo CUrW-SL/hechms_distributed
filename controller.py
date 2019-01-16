@@ -176,3 +176,5 @@ def is_valid_init_dt(date_time):
 
 if __name__ == '__main__':
     app.run()
+
+# /home/curw/distributed_hec/hechms-distributed
