@@ -5,7 +5,7 @@ from datetime import datetime
 def create_run_file(model_name, date_time):
     run_file_path = RUN_FILE_NAME.replace('{MODEL_NAME}', model_name)
     run_file = RUN_FILE_TEMPLATE.replace('{MODEL_NAME}', model_name)
-    current_date_time = datetime.now()
+    current_date_time = datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
     last_modified_date = current_date_time.strftime('%d %b %Y')
     last_modified_time = current_date_time.strftime('%H:%M:%S')
 
